@@ -236,3 +236,187 @@ void v_Driver_Down_Task(void *pvParameters)
         Motor_stop();
     }
 }
+/***************************** Passenger UP Task*****************************/
+/*------------------------------------------------------------------*/
+void v_Passenger_UP_Task(void *pvParameters)
+{
+    /* Wait for the Passenger UP semaphore to be available */
+    xSemaphoreTake(x_Passenger_UP_Semaphore, 0);
+
+    for (;;) {
+        /* Wait indefinitely to acquire the Passenger UP semaphore */
+        xSemaphoreTake(x_Passenger_UP_Semaphore, portMAX_DELAY);
+
+        /* Enter critical section to safely update shared variable */
+        taskENTER_CRITICAL();
+        {
+            move_up = 1; /* Set move_up flag */
+        }
+        taskEXIT_CRITICAL();
+
+        /* Enable motor for UP movement */
+        Motor_enable();
+
+        /* Delay for motor action */
+        vTaskDelay(3000 / portTICK_RATE_MS);
+
+        /* check Maunal mode and stop if the limit switch up is pressed , the jam has happened or the lock is pressed */
+        if ((!GPIOPinRead(GPIO_PORTB_BASE, PASSENGER_BUTTON_UP_PIN)) && (!GPIOPinRead(GPIO_PORTB_BASE, LIMIT_SWITCH_UP)) && (GPIOPinRead(GPIO_PORTC_BASE, LOCK_BUTTON_PIN) != 0) && (jam == 1)) {
+            #if DEBUG
+            /* Toggle debug LED */
+            GPIOPinWrite(LED_GPIO_BASE, LED_PIN, LED_PIN);
+            #endif
+
+            /* Enter critical section to safely update shared variable */
+            taskENTER_CRITICAL();
+            {
+                move_down = 0; /* Reset move_down flag */
+            }
+            taskEXIT_CRITICAL();
+
+            /* Move motor UP */
+            Motor_up();
+
+            /* Wait until conditions are met to stop UP movement */
+            while ((!GPIOPinRead(GPIO_PORTB_BASE, PASSENGER_BUTTON_UP_PIN)) && (!GPIOPinRead(GPIO_PORTB_BASE, LIMIT_SWITCH_UP)) && (GPIOPinRead(GPIO_PORTC_BASE, LOCK_BUTTON_PIN) != 0) && (jam == 1));
+
+            #if DEBUG
+            /* Toggle debug LED */
+            GPIOPinWrite(LED_GPIO_BASE, LED_PIN, 0);
+            #endif
+        }
+        /* check auto mode and stop if the limit switch up is pressed , the jam has happened or the lock is pressed */
+        else if ((!GPIOPinRead(GPIO_PORTB_BASE, LIMIT_SWITCH_UP)) && (GPIOPinRead(GPIO_PORTC_BASE, LOCK_BUTTON_PIN) != 0) && (jam == 1)) {
+            uint32 i = 1000000;
+            #if DEBUG
+            /* Toggle debug LED */
+            GPIOPinWrite(LED_GPIO_BASE, LED_PIN, LED_PIN);
+            #endif
+
+            /* Enter critical section to safely update shared variable */
+            taskENTER_CRITICAL();
+            {
+                move_down = 0; /* Reset move_down flag */
+            }
+            taskEXIT_CRITICAL();
+
+            /* Move motor UP */
+            Motor_up();
+
+            /* Wait until conditions are met to stop UP movement or timeout */
+            while ((!GPIOPinRead(GPIO_PORTB_BASE, LIMIT_SWITCH_UP)) && (i > 0) && (GPIOPinRead(GPIO_PORTC_BASE, LOCK_BUTTON_PIN) != 0) && (jam == 1)) {
+                i--;
+            }
+
+            #if DEBUG
+            /* Toggle debug LED */
+            GPIOPinWrite(LED_GPIO_BASE, LED_PIN, 0);
+            #endif
+        }
+        else {
+            /* Reset move_up flag */
+            taskENTER_CRITICAL();
+            {
+                move_up = 0;
+            }
+            taskEXIT_CRITICAL();
+        }
+
+        /* Stop motor */
+        Motor_stop();
+        /* Reset jam flag */
+        jam = 0;
+    }
+}
+
+
+/***************************** Passenger DOWN Task*****************************/
+/*------------------------------------------------------------------*/
+void v_Passenger_Down_Task(void *pvParameters)
+{
+    /* Wait for the Passenger DOWN semaphore to be available */
+    xSemaphoreTake(x_Passenger_DOWN_Semaphore, 0);
+
+    for (;;) {
+        /* Wait indefinitely to acquire the Passenger DOWN semaphore */
+        xSemaphoreTake(x_Passenger_DOWN_Semaphore, portMAX_DELAY);
+
+        /* Enter critical section to safely update shared variable */
+        taskENTER_CRITICAL();
+        {
+            move_down = 1; /* Set move_down flag */
+        }
+        taskEXIT_CRITICAL();
+
+        /* Enable motor for DOWN movement */
+        Motor_enable();
+
+        /* Delay for motor action */
+        vTaskDelay(3000 / portTICK_RATE_MS);
+
+        /* check manual mode and stop if the limit switch down is pressed or the lock is pressed */
+        if ((!GPIOPinRead(GPIO_PORTB_BASE, PASSENGER_BUTTON_DOWN_PIN)) && (!GPIOPinRead(GPIO_PORTB_BASE, LIMIT_SWITCH_DOWN)) && (GPIOPinRead(GPIO_PORTC_BASE, LOCK_BUTTON_PIN) != 0)) {
+            #if DEBUG
+            /* Toggle debug LED */
+            GPIOPinWrite(LED_GPIO_BASE, LED_PIN, LED_PIN);
+            #endif
+
+            /* Enter critical section to safely update shared variable */
+            taskENTER_CRITICAL();
+            {
+                move_up = 0; /* Reset move_up flag */
+            }
+            taskEXIT_CRITICAL();
+
+            /* Move motor DOWN */
+            Motor_down();
+
+            /* Wait until conditions are met to stop DOWN movement */
+            while ((!GPIOPinRead(GPIO_PORTB_BASE, PASSENGER_BUTTON_DOWN_PIN)) && (!GPIOPinRead(GPIO_PORTB_BASE, LIMIT_SWITCH_DOWN)) && (GPIOPinRead(GPIO_PORTC_BASE, LOCK_BUTTON_PIN) != 0));
+
+            #if DEBUG
+            /* Toggle debug LED */
+            GPIOPinWrite(LED_GPIO_BASE, LED_PIN, 0);
+            #endif
+        }
+        /* check auto mode and stop if the limit switch down is pressed  or the lock is pressed */
+        else if ((!GPIOPinRead(GPIO_PORTB_BASE, LIMIT_SWITCH_DOWN)) && (GPIOPinRead(GPIO_PORTC_BASE, LOCK_BUTTON_PIN) != 0)) {
+            uint32 i = 1000000;
+            #if DEBUG
+            /* Toggle debug LED */
+            GPIOPinWrite(LED_GPIO_BASE, LED_PIN, LED_PIN);
+            #endif
+
+            /* Enter critical section to safely update shared variable */
+            taskENTER_CRITICAL();
+            {
+                move_up = 0; /* Reset move_up flag */
+            }
+            taskEXIT_CRITICAL();
+
+            /* Move motor DOWN */
+            Motor_down();
+
+            /* Wait until conditions are met to stop DOWN movement or timeout */
+            while ((!GPIOPinRead(GPIO_PORTB_BASE, LIMIT_SWITCH_DOWN)) && (i > 0) && (GPIOPinRead(GPIO_PORTC_BASE, LOCK_BUTTON_PIN) != 0)) {
+                i--;
+            }
+
+            #if DEBUG
+            /* Toggle debug LED */
+            GPIOPinWrite(LED_GPIO_BASE, LED_PIN, 0);
+            #endif
+        }
+        else {
+            /* Reset move_down flag */
+            taskENTER_CRITICAL();
+            {
+                move_down = 0;
+            }
+            taskEXIT_CRITICAL();
+        }
+
+        /* Stop motor */
+        Motor_stop();
+    }
+}
